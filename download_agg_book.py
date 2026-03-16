@@ -10,7 +10,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 symbol = "BTCUSDT"
-interval = "1m"
 base_url = "https://data.binance.vision/data/spot/daily/aggTrades"
 
 start = date(2023, 1, 1)   # inclusive
