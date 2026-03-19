@@ -119,10 +119,10 @@ class MultiCoinSTBAIBot:
             for coin in COINS:
                 pair = f"{coin}/USD"
                 ticker = self.api.get_ticker(pair)
-                price = float(ticker.get("lastPrice", 1.0))
-                free = float(bal.get(coin, {}).get("free", 0))
+                price = float(ticker.get("LastPrice", 1.0))
+                free = float(bal.get(coin, {}).get("Free", 0))
                 total += free * price
-            usd_free = float(bal.get("USD", {}).get("free", 0))
+            usd_free = float(bal.get("USD", {}).get("Free", 0))
             return usd_free + total
         except Exception as e:
             print("Portfolio fetch error:", e)
@@ -189,7 +189,7 @@ class MultiCoinSTBAIBot:
                             quantity=qty
                         )
 
-                        print(f"\n🔥 TRADE EXECUTED on {roo_pair} | Side: {side} | Qty (rule-compliant): {qty}")
+                        print(f"\n🔥 TRADE EXECUTED on {roo_pair} | Side: {side} | Qty: {qty}")
                         print("Full place_order() response:")
                         print(json.dumps(order_resp, indent=2))
 
