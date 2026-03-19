@@ -3,7 +3,7 @@
 git clone https://github.com/NewtonHatesApples/QuantHackathon2026.git
 ```
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt --upgrade
 ```
 Then create a directory named `data` for storing crypto's csv, a directory named `tmp_data` to assist with the process of downloading data.
 <br>
