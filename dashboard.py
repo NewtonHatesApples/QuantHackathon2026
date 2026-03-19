@@ -40,7 +40,7 @@ def dashboard():
     fig.update_yaxes(autorange=True)
 
     fig.update_layout(
-        title='Interactive Mean-Reversion PnL Dashboard<br>(Optimized x / SL / TP)',
+        title='Interactive Dashboard',
         xaxis_title='Time',
         yaxis_title='Cumulative PnL (USD)',
         hovermode='x unified',
@@ -59,7 +59,7 @@ def dashboard():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Crypto Mean-Reversion Dashboard (Optimized)</title>
+        <title>Interactive Dashboard (Optimized)</title>
         <style>body {{ font-family: Arial; margin: 20px; background: #f8f9fa; }}</style>
     </head>
     <body>
