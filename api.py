@@ -88,13 +88,16 @@ class RoostooAPI:
         params = {}
         if pair:
             params["pair"] = pair
-        return self._request("GET", "ticker", params=params, require_ts=True)
+        resp = self._request("GET", "ticker", params=params, require_ts=True)
+        return resp.get("Data")
 
     # ── Fully Authenticated Endpoints (RCL_TopLevelCheck) ───────────────────────
 
     def get_balance(self) -> Dict[str, Any]:
         """GET /v3/balance — Free & locked balances per asset."""
-        return self._request("GET", "balance", require_auth=True)
+
+        resp = self._request("GET", "balance", require_auth=True)
+        return resp.get("Wallet")
 
     def get_pending_count(self) -> Dict[str, Any]:
         """GET /v3/pending_count — Number of pending orders (total + per pair)."""
