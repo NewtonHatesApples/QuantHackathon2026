@@ -97,7 +97,7 @@ class RoostooAPI:
         """GET /v3/balance — Free & locked balances per asset."""
 
         resp = self._request("GET", "balance", require_auth=True)
-        return resp.get("Wallet")
+        return resp.get("SpotWallet")
 
     def get_pending_count(self) -> Dict[str, Any]:
         """GET /v3/pending_count — Number of pending orders (total + per pair)."""
