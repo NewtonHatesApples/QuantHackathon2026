@@ -1,6 +1,8 @@
 ## Quick Onboarding
 ```bash
+cd ~
 git clone https://github.com/NewtonHatesApples/QuantHackathon2026.git
+cd QuantHackathon2026
 ```
 ```bash
 pip install -r requirements.txt --upgrade

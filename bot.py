@@ -2,17 +2,20 @@ import time
 import os
 import json
 import requests
+import warnings
+
 import pandas as pd
 import numpy as np
+
 from collections import deque
 from datetime import datetime
-import warnings
-warnings.filterwarnings("ignore")
-
+from zoneinfo import ZoneInfo
 from api import RoostooAPI
 
 # ====================== CONFIG ======================
-COINS = ["BTC", "ETH", "SOL", "XRP", "PAXG", "DOGE", "BNB", "ZEC", "TAO", "PEPE"]
+warnings.filterwarnings("ignore")
+
+COINS = ["BTC", "ETH", "SOL", "XRP", "BNB"]
 ROOSTOO_PAIRS = [f"{coin}/USD" for coin in COINS]
 BINANCE_SYMBOLS = [f"{coin}USDT" for coin in COINS]
 
@@ -46,7 +49,7 @@ class MultiCoinSTBAIBot:
                 "price_prec": int(info.get("PricePrecision", 2)),
                 "min_order": float(info.get("MiniOrder", 0.0001))
             }
-        print(f"Loaded rules for {len(self.rules)} pairs. Example BTC/USD: {self.rules.get('BTC/USD')}")
+        print(f"Loaded rules for {len(self.rules)} pairs. Example ETH/USD: {self.rules.get('ETH/USD')}")
 
         self.position = {coin: 0.0 for coin in COINS}
         self.history = {coin: deque(maxlen=PARAMS['K'] + 20) for coin in COINS}
@@ -199,7 +202,7 @@ class MultiCoinSTBAIBot:
                 if time.time() - self.last_portfolio_print > 600:
                     value = self.get_portfolio_value()
                     pos_str = " | ".join([f"{c}:{self.position[c]:.4f}" for c in COINS])
-                    print(f"\n📊 [{datetime.now()}] Portfolio Value = ${value:,.2f} | Positions: {pos_str}")
+                    print(f"\n📊 [{datetime.now(ZoneInfo('Asia/Hong_Kong')).strftime('%Y %b %d %H:%M:%S')}] Portfolio Value = ${value:,.2f} | Positions: {pos_str}")
                     self.last_portfolio_print = time.time()
 
                 time.sleep(60)
