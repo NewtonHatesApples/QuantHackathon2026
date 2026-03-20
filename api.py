@@ -54,6 +54,8 @@ class RoostooAPI:
         if require_auth:
             if not self.api_key:
                 raise ValueError("api_key is required for authenticated endpoints")
+
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
             headers["RST-API-KEY"] = self.api_key
             headers["MSG-SIGNATURE"] = self._sign_request(params)
 
