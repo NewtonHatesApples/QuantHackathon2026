@@ -48,7 +48,7 @@ class RoostooAPI:
 
         if require_ts or require_auth:
             params["timestamp"] = int(time.time() * 1000)
-            params = {key: value for key, value in sorted(params.items())}
+            params = {key: value for key, value in sorted(params.keys())}
 
         headers = {}
         if require_auth:
