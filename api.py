@@ -48,21 +48,21 @@ class RoostooAPI:
 
         if require_ts or require_auth:
             params["timestamp"] = int(time.time() * 1000)
-            params = {key: value for key, value in sorted(params.keys())}
+            params = dict(sorted(params.items()))
 
         headers = {}
         if require_auth:
             if not self.api_key:
                 raise ValueError("api_key is required for authenticated endpoints")
 
-            headers["Content-Type"] = "application/x-www-form-urlencoded"
             headers["RST-API-KEY"] = self.api_key
             headers["MSG-SIGNATURE"] = self._sign_request(params)
 
         if method.upper() == "GET":
             response = self.session.get(url, params=params, headers=headers, timeout=self.timeout)
         elif method.upper() == "POST":
-            body = urllib.parse.urlencode(params)
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            body = urllib.parse.urlencode(params).replace("%2F", "/")
             response = self.session.post(url, data=body, headers=headers, timeout=self.timeout)
         else:
             raise ValueError(f"Unsupported method: {method}")
@@ -126,7 +126,6 @@ class RoostooAPI:
             if price is None:
                 raise ValueError("price is required for LIMIT orders")
             params["price"] = str(price)
-
         return self._request("POST", "place_order", params=params, require_auth=True)
 
     def query_order(self, order_id: Optional[int] = None, pair: Optional[str] = None, pending_only: bool = False, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:

@@ -214,5 +214,7 @@ class MultiCoinSTBAIBot:
 
 if __name__ == "__main__":
     bot = MultiCoinSTBAIBot()
+    balance = bot.api.get_balance().get("USD", {}).get("Free", 0.0)
+    print(f"Current Balance: ${balance}")
     bot.api.place_order(pair="PEPE/USD", side="BUY", type_="MARKET", quantity=294118)  # Spend $1
     bot.run()
