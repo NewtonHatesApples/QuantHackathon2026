@@ -82,8 +82,8 @@ class MultiCoinSTBAIBot:
         log_vol_m = np.log(latest['volume'] + 1)
 
         # Current 1h
-        current_hour = latest['datetime'].floor('H')
-        hour_df = df[df['datetime'].dt.floor('H') == current_hour]
+        current_hour = latest['datetime'].floor('h')
+        hour_df = df[df['datetime'].dt.floor('h') == current_hour]
         if len(hour_df) > 0:
             I_B_h = 2 * hour_df['tb_base'].sum() / hour_df['volume'].sum() - 1 if hour_df['volume'].sum() > 0 else 0.0
             I_Q_h = 2 * hour_df['tb_quote'].sum() / hour_df['quote_volume'].sum() - 1 if hour_df['quote_volume'].sum() > 0 else 0.0

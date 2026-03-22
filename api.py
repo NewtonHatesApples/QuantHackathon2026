@@ -33,12 +33,15 @@ class RoostooAPI:
         self.timeout = timeout
 
     def _sign_request(self, params: Dict[str, Any]) -> str:
-        """Create MSG-SIGNATURE using HMAC-SHA256 of sorted params."""
+        """Create MSG-SIGNATURE using HMAC-SHA256 of raw sorted params (NO urlencode)."""
         if not self.api_secret:
             raise ValueError("api_secret is required for signed requests")
 
-        sorted_params = sorted(params.items())
-        query_string = urllib.parse.urlencode(sorted_params)
+        # Force everything to str (timestamp was int, quantity already str, etc.)
+        str_params = {k: str(v) for k, v in params.items()}
+        sorted_params = sorted(str_params.items())  # alphabetical by key
+        query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
+
         signature = hmac.new(self.api_secret.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256).hexdigest()
         return signature
 
@@ -61,8 +64,10 @@ class RoostooAPI:
         if method.upper() == "GET":
             response = self.session.get(url, params=params, headers=headers, timeout=self.timeout)
         elif method.upper() == "POST":
+            str_params = {k: str(v) for k, v in params.items()}
+            sorted_params = sorted(str_params.items())
+            body = "&".join(f"{k}={v}" for k, v in sorted_params)
             headers["Content-Type"] = "application/x-www-form-urlencoded"
-            body = urllib.parse.urlencode(params).replace("%2F", "/")
             response = self.session.post(url, data=body, headers=headers, timeout=self.timeout)
         else:
             raise ValueError(f"Unsupported method: {method}")
@@ -108,7 +113,7 @@ class RoostooAPI:
 
     def place_order(self, pair: str, side: str, type_: str, quantity: float, price: Optional[float] = None) -> Dict[str, Any]:
         """
-        POST /v3/place_order — Place new order.
+        POST /v3/place_order — Place new order
         :param pair: E.g. "BTC/USD".
         :param side: Must be "BUY" or "SELL".
         :param type_: Must be "LIMIT" or "MARKET".
