@@ -1,6 +1,5 @@
 import time
 import os
-import json
 import requests
 import warnings
 
@@ -21,7 +20,7 @@ BINANCE_SYMBOLS = [f"{coin}USDT" for coin in COINS]
 
 # Hard-coded best Optuna parameters
 PARAMS = {
-    'K': 1386,
+    'K': 1_386,  # 1,386
     'lambda_sigma': 0.9417,
     'target_vol': 0.0009435,
     'hysteresis': 0.07011,
@@ -39,25 +38,24 @@ class MultiCoinSTBAIBot:
             api_secret=os.environ.get("API_SECRET")
         )
 
-        # === Fetch and store exchange rules (PricePrecision, AmountPrecision, MiniOrder) ===
-        print("Fetching Roostoo exchangeInfo...")
+        # Load exchange rules once
+        print("🔄 Fetching Roostoo exchangeInfo...")
         ex_info = self.api.get_exchange_info()
         self.rules = {}
         for pair, info in ex_info.get("TradePairs", {}).items():
             self.rules[pair] = {
                 "amount_prec": int(info.get("AmountPrecision", 6)),
                 "price_prec": int(info.get("PricePrecision", 2)),
-                "min_order": float(info.get("MiniOrder", 0.0001))
+                "mini_order": float(info.get("MiniOrder", 5.0))   # minimum NOTIONAL value
             }
-        print(f"Loaded rules for {len(self.rules)} pairs. Example ETH/USD: {self.rules.get('ETH/USD')}")
+        print(f"✅ Loaded rules for {len(self.rules)} pairs.")
 
         self.position = {coin: 0.0 for coin in COINS}
         self.history = {coin: deque(maxlen=PARAMS['K'] + 20) for coin in COINS}
         self.sigma = {coin: 0.001 for coin in COINS}
         self.last_portfolio_print = time.time()
 
-        print("🚀 Multi-Coin STBAI Bot started with full exchange rule compliance")
-        print(f"Coins: {COINS}")
+        print("🚀 Multi-Coin STBAI Bot started")
 
     def fetch_latest_klines(self, binance_sym: str) -> pd.DataFrame:
         url = f"https://api.binance.com/api/v3/klines?symbol={binance_sym}&interval=1m&limit=500"
@@ -70,10 +68,9 @@ class MultiCoinSTBAIBot:
         return df
 
     def build_features(self, df: pd.DataFrame) -> np.ndarray:
-        """Full real 1m + current 1h + current 1d features (no dummy)"""
         latest = df.iloc[-1].copy()
 
-        # 1m
+        # 1m features
         I_B_m = 2 * latest['tb_base'] / latest['volume'] - 1 if latest['volume'] > 0 else 0.0
         I_Q_m = 2 * latest['tb_quote'] / latest['quote_volume'] - 1 if latest['quote_volume'] > 0 else 0.0
         TI_m = np.log(latest['trades'] + 1)
@@ -122,13 +119,12 @@ class MultiCoinSTBAIBot:
             for coin in COINS:
                 pair = f"{coin}/USD"
                 ticker = self.api.get_ticker(pair)
-                price = float(ticker.get("LastPrice", 1.0))
+                price = float(ticker.get("lastPrice", 1.0))
                 free = float(bal.get(coin, {}).get("Free", 0))
                 total += free * price
             usd_free = float(bal.get("USD", {}).get("Free", 0))
             return usd_free + total
-        except Exception as e:
-            print("Portfolio fetch error:", e)
+        except:
             return 0.0
 
     def run(self):
@@ -145,10 +141,8 @@ class MultiCoinSTBAIBot:
 
                     features = self.build_features(df)
 
-                    # Simulate last realized 5m return for training (past data only)
+                    # Rolling OLS (lagged)
                     realized_5m = np.log(df['close'].iloc[-1] / df['close'].iloc[-6]) if len(df) >= 6 else 0.0
-
-                    # Update history & rolling OLS (correct lagged)
                     self.history[coin].append((features, realized_5m))
                     hat_r = 0.0
                     if len(self.history[coin]) > PARAMS['K'] + 10:
@@ -166,42 +160,43 @@ class MultiCoinSTBAIBot:
 
                     TI = features[2]
 
-                    # Entry / Exit (exact PDF)
+                    # Decision
                     if hat_r > PARAMS['cost_buffer'] and TI > PARAMS['liq_log']:
                         p_target = min(1.0, PARAMS['target_vol'] / max(self.sigma[coin], 1e-8))
                     else:
                         p_target = 0.0
 
-                    # Rebalance with hysteresis + EXCHANGE RULE COMPLIANCE
+                    # Rebalance
                     if abs(p_target - self.position[coin]) > PARAMS['hysteresis']:
                         delta = p_target - self.position[coin]
                         side = "BUY" if delta > 0 else "SELL"
 
-                        # Respect MiniOrder and AmountPrecision
-                        rules = self.rules.get(roo_pair, {"amount_prec": 6, "min_order": 0.0001})
-                        raw_qty = abs(delta) * 0.05   # base allocation example
-                        qty = max(rules["min_order"], round(raw_qty, rules["amount_prec"]))
+                        # === Safer quantity scaling + Correct MiniOrder logic ===
+                        risk_factor = 1 / 0.08
+                        raw_qty = abs(delta) * risk_factor    # fraction of portfolio
 
-                        if qty < rules["min_order"]:
-                            qty = rules["min_order"]   # enforce minimum
+                        rules = self.rules.get(roo_pair, {"amount_prec": 6, "mini_order": 5.0})
+                        price = float(self.api.get_ticker(roo_pair).get("lastPrice", 1.0))
 
-                        order_resp = self.api.place_order(
-                            pair=roo_pair,
-                            side=side,
-                            type_="MARKET",
-                            quantity=qty
-                        )
+                        # First round to precision
+                        qty = round(raw_qty, rules["amount_prec"])
 
-                        print(f"\n🔥 TRADE EXECUTED on {roo_pair} | Side: {side} | Qty: {qty}")
-                        print("Full place_order() response:")
-                        print(json.dumps(order_resp, indent=2))
+                        # Ensure notional meets MiniOrder
+                        notional = qty * price
+                        if notional < rules["mini_order"]:
+                            qty = round(rules["mini_order"] / price, rules["amount_prec"])
 
+                        # Final safety
+                        qty = max(qty, rules["mini_order"] / price * 1.01)
+                        self.api.place_order(pair=roo_pair, side=side, type_="MARKET", quantity=qty)
+
+                        print(f"\n🔥 [{datetime.now(ZoneInfo('Asia/Hong_Kong')).strftime('%Y %b %d %H:%M:%S')}] TRADE on {roo_pair} | Side: {side} | Qty: {qty:.8f} | Delta: {delta:.4f}")
                         self.position[coin] = p_target
 
-                # Portfolio every 10 minutes
-                if time.time() - self.last_portfolio_print > 600:
+                # Portfolio every 5 minutes
+                if time.time() - self.last_portfolio_print > 300:
                     value = self.get_portfolio_value()
-                    pos_str = " | ".join([f"{c}:{self.position[c]:.4f}" for c in COINS])
+                    pos_str = " | ".join([f"{c}: {self.position[c]:.4f}" for c in COINS])
                     print(f"\n📊 [{datetime.now(ZoneInfo('Asia/Hong_Kong')).strftime('%Y %b %d %H:%M:%S')}] Portfolio Value = ${value:,.2f} | Positions: {pos_str}")
                     self.last_portfolio_print = time.time()
 
@@ -215,6 +210,6 @@ class MultiCoinSTBAIBot:
 if __name__ == "__main__":
     bot = MultiCoinSTBAIBot()
     balance = bot.api.get_balance().get("USD", {}).get("Free", 0.0)
-    print(f"Current Balance: ${balance}")
+    print(f"Current Balance: ${balance:,}")
     bot.api.place_order(pair="PEPE/USD", side="BUY", type_="MARKET", quantity=294118)  # Spend $1
     bot.run()
